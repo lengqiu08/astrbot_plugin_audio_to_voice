@@ -1486,29 +1486,49 @@ class DeepseaRadio(Star):
             event.stop_event()
             return
         yield event.chain_result([
-            Plain(text="用 B站 App 扫这个码（别用微信/相机），扫完点确认："),
+            Plain(text=(
+                "用 B站 App 扫这个码（别用微信/相机），扫完在手机上点确认。\n"
+                "提醒：这码只给自己扫，别发群里——谁扫进来，谁就是登录的那一个，"
+                "原来登着的号会被顶下去。")),
             Image.fromFileSystem(png),
         ])
-        cookie = str(self._cfg("bilibili_cookie", "") or "").strip()
-        for _ in range(45):          # 最多等 90 秒
+        # 轮询要带 buvid：不带的话 B站可能直接回 -412，扫了也拿不到 cookie
+        cookie = await asyncio.to_thread(self._bili_cookie)
+        told_waiting = False
+        for _ in range(60):          # 最多等 120 秒
             await asyncio.sleep(2)
             try:
-                code, _msg, new_cookie = await asyncio.to_thread(
+                code, msg, new_cookie = await asyncio.to_thread(
                     bili_login.qr_poll_once, key, cookie)
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"[DeepseaRadio] 轮询登录失败：{exc}")
                 continue
-            if code == 0 and new_cookie:
+            if code == 0:
+                if not new_cookie:
+                    yield event.plain_result(
+                        "B站说登录成功，但没回 cookie。检查网络后再扫一次，别反复扫。")
+                    event.stop_event()
+                    return
                 self.config["bilibili_cookie"] = new_cookie
                 saved = bili_login.save_cookie(new_cookie)
                 yield event.plain_result(
-                    "登录成功，cookie 存好了。" + ("" if saved else "（写文件失败，重启前仍有效）"))
+                    "登录成功，cookie 已经存好了。" + ("" if saved else "（写文件失败，重启前仍有效）"))
                 event.stop_event()
                 return
+            if code == 86090 and not told_waiting:
+                told_waiting = True
+                yield event.plain_result("看到你已经扫码了，在手机上点一下「确认登录」就好。")
+                continue
             if code == 86038:
                 yield event.plain_result("二维码过期了，再发一次「扫码登录」。")
                 event.stop_event()
                 return
-        yield event.plain_result("等了 90 秒没扫上，再发一次「扫码登录」吧。")
+            if code == 86101 and msg and "未扫码" not in msg:
+                logger.info(f"[DeepseaRadio] 轮询状态：{code} {msg}")
+        yield event.plain_result(
+            "等了两分钟还是没拿到登录态（可能是没确认，或者扫完后页面卡住）。"
+            "再发一次「扫码登录」吧。" if not told_waiting else
+            "你扫码了，但一直没确认。回手机点「确认登录」，或者重发「扫码登录」。")
         event.stop_event()
 
     # ---------------- 指令 ----------------
