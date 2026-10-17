@@ -51,11 +51,19 @@ def check(cookie: str) -> dict:
     return info
 
 
-def qr_new() -> tuple[str, str]:
-    """要一个二维码：返回 (unikey, 扫进 App 的内容)。"""
-    data = json.loads(_get(f"{BASE}/api/login/qrcode/unikey?type=1").decode("utf-8", "ignore") or "{}")
+def qr_new() -> tuple[str, str, str]:
+    """要一个二维码：返回 (unikey, 扫码内容, 服务端给的 cookie)。
+
+    那个 cookie（NMTID 之类）要带着去轮询，不带的话有些账号扫了也一直回 801。
+    """
+    req = urllib.request.Request(f"{BASE}/api/login/qrcode/unikey?type=1", headers=_headers())
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        raw = resp.read()
+        setcookies = resp.headers.get_all("Set-Cookie") or []
+    data = json.loads(raw.decode("utf-8", "ignore") or "{}")
     key = str(data.get("unikey") or "")
-    return key, (f"{BASE}/login?codekey={key}" if key else "")
+    pairs = [c.split(";", 1)[0].strip() for c in setcookies if "=" in c]
+    return key, (f"{BASE}/login?codekey={key}" if key else ""), "; ".join(pairs)
 
 
 def qr_poll(key: str, cookie: str = "") -> tuple[int, str, str]:
@@ -70,6 +78,11 @@ def qr_poll(key: str, cookie: str = "") -> tuple[int, str, str]:
     message = str(data.get("message") or "")
     if code != 803:
         return code, message, ""
+    # 网易云把 cookie 放在响应体的 cookie 字段里，不在 Set-Cookie 头；
+    # 之前只读头，所以扫了也拿不到 —— 这里优先读 body，头只作兜底。
+    body_cookie = str(data.get("cookie") or "").strip()
+    if body_cookie:
+        return 803, message or "登录成功", body_cookie
     pairs = []
     for item in setcookies:
         head = item.split(";", 1)[0].strip()

@@ -1565,7 +1565,7 @@ class DeepseaRadio(Star):
                 event.stop_event()
                 return
         try:
-            key, content = await asyncio.to_thread(netease_login.qr_new)
+            key, content, qr_cookie = await asyncio.to_thread(netease_login.qr_new)
         except Exception as exc:  # noqa: BLE001
             yield event.plain_result(f"取网易云二维码失败：{type(exc).__name__}: {exc}")
             event.stop_event()
@@ -1591,7 +1591,8 @@ class DeepseaRadio(Star):
         for _ in range(60):          # 最多等 120 秒
             await asyncio.sleep(2)
             try:
-                code, msg, new_cookie = await asyncio.to_thread(netease_login.qr_poll, key)
+                code, msg, new_cookie = await asyncio.to_thread(
+                    netease_login.qr_poll, key, qr_cookie)
             except Exception as exc:  # noqa: BLE001
                 logger.warning(f"[DeepseaRadio] 网易云轮询失败：{exc}")
                 continue
@@ -1605,6 +1606,15 @@ class DeepseaRadio(Star):
                 saved = netease_login.save_cookie(new_cookie)
                 yield event.plain_result(
                     "网易云登录成功，cookie 已存好。" + ("" if saved else "（写文件失败，重启前仍有效）"))
+                event.stop_event()
+                return
+            if code in (8821, 8822):
+                yield event.plain_result(
+                    "网易云把扫码登录拦下来了（风控码 8821：请切换其他登录方式）。\n"
+                    "这条路暂时走不通，改用手动填 cookie 更稳：\n"
+                    "1. 浏览器登录 music.163.com，按 F12 → Application → Cookies\n"
+                    "2. 把整条 Cookie 复制出来（至少要有 MUSIC_U=...）\n"
+                    "3. 贴到本插件配置的 netease_cookie 里，保存即可")
                 event.stop_event()
                 return
             if code == 802 and not told_waiting:
