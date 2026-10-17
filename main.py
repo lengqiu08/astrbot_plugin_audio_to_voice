@@ -1321,6 +1321,7 @@ class DeepseaRadio(Star):
     _ROUTES = (
         ("电台自检", "cmd_selftest"),
         ("B站卡片", "cmd_bili_card"),
+        ("重新扫码", "cmd_bili_login"),
         ("扫码登录", "cmd_bili_login"),
         ("B站登录", "cmd_bili_login"),
         ("点歌榜", "cmd_rank"),
@@ -1467,7 +1468,19 @@ class DeepseaRadio(Star):
         event.stop_event()
 
     async def cmd_bili_login(self, event: AstrMessageEvent):
-        """扫码登录：发二维码，扫完自动存 cookie。"""
+        """扫码登录：已登录就不发码（防顶号）；换号要走「重新扫码」。"""
+        text = event.message_str.strip()
+        force = text.startswith("重新扫码")
+        if not force:
+            cookie = str(self._cfg("bilibili_cookie", "") or "").strip()
+            info = await asyncio.to_thread(bili_login.login_report, cookie)
+            if info.get("logged_in"):
+                yield event.plain_result(
+                    f"已经是登录状态了（{info.get('uname') or '已登录'} · {info.get('vip')}），"
+                    "没必要再扫一次。\n"
+                    "二维码谁扫就是谁登，会把当前号顶下去——真要换号，发「重新扫码」。")
+                event.stop_event()
+                return
         try:
             key, content = await asyncio.to_thread(bili_login.qr_new)
         except Exception as exc:  # noqa: BLE001
