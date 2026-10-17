@@ -46,6 +46,11 @@ except ImportError:  # pragma: no cover
     import bili_login
 
 try:
+    from . import netease_login
+except ImportError:  # pragma: no cover
+    import netease_login
+
+try:
     from astrbot.api.web import error_response, json_response, request
 except ImportError:  # pragma: no cover
     error_response = json_response = request = None
@@ -1321,6 +1326,8 @@ class DeepseaRadio(Star):
     _ROUTES = (
         ("电台自检", "cmd_selftest"),
         ("B站卡片", "cmd_bili_card"),
+        ("重新网易云登录", "cmd_netease_login"),
+        ("网易云登录", "cmd_netease_login"),
         ("重新扫码", "cmd_bili_login"),
         ("扫码登录", "cmd_bili_login"),
         ("B站登录", "cmd_bili_login"),
@@ -1542,6 +1549,75 @@ class DeepseaRadio(Star):
             "等了两分钟还是没拿到登录态（可能是没确认，或者扫完后页面卡住）。"
             "再发一次「扫码登录」吧。" if not told_waiting else
             "你扫码了，但一直没确认。回手机点「确认登录」，或者重发「扫码登录」。")
+        event.stop_event()
+
+    async def cmd_netease_login(self, event: AstrMessageEvent):
+        """网易云扫码登录：已登录就不发码；换号走「重新网易云登录」。"""
+        text = event.message_str.strip()
+        force = text.startswith("重新网易云登录")
+        if not force:
+            cookie = str(self._cfg("netease_cookie", "") or "").strip()
+            info = await asyncio.to_thread(netease_login.check, cookie)
+            if info.get("logged_in"):
+                yield event.plain_result(
+                    f"网易云已经是登录状态了（{info.get('nickname') or '已登录'}），没必要再扫。\n"
+                    "二维码谁扫就是谁登，会把当前号顶下去——真要换号，发「重新网易云登录」。")
+                event.stop_event()
+                return
+        try:
+            key, content = await asyncio.to_thread(netease_login.qr_new)
+        except Exception as exc:  # noqa: BLE001
+            yield event.plain_result(f"取网易云二维码失败：{type(exc).__name__}: {exc}")
+            event.stop_event()
+            return
+        if not key or not content:
+            yield event.plain_result("网易云没给二维码，稍后再试。")
+            event.stop_event()
+            return
+        png = os.path.join(tempfile.gettempdir(), f"netease_qr_{os.getpid()}.png")
+        try:
+            await asyncio.to_thread(netease_login.qr_png, content, png)
+        except Exception as exc:  # noqa: BLE001
+            yield event.plain_result(f"画二维码失败：{exc}")
+            event.stop_event()
+            return
+        yield event.chain_result([
+            Plain(text=(
+                "用网易云音乐 App 扫这个码（右上角「+」→ 扫一扫），扫完在手机上确认。\n"
+                "提醒：这码只给自己扫，别发群里——谁扫谁登，会把当前账号顶下去。")),
+            Image.fromFileSystem(png),
+        ])
+        told_waiting = False
+        for _ in range(60):          # 最多等 120 秒
+            await asyncio.sleep(2)
+            try:
+                code, msg, new_cookie = await asyncio.to_thread(netease_login.qr_poll, key)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"[DeepseaRadio] 网易云轮询失败：{exc}")
+                continue
+            if code == 803:
+                if not new_cookie:
+                    yield event.plain_result(
+                        "登录成功了但没拿到 cookie。再扫一次，别反复扫同一个码。")
+                    event.stop_event()
+                    return
+                self.config["netease_cookie"] = new_cookie
+                saved = netease_login.save_cookie(new_cookie)
+                yield event.plain_result(
+                    "网易云登录成功，cookie 已存好。" + ("" if saved else "（写文件失败，重启前仍有效）"))
+                event.stop_event()
+                return
+            if code == 802 and not told_waiting:
+                told_waiting = True
+                yield event.plain_result("看到你扫码了，在手机上点一下「确认登录」。")
+                continue
+            if code == 800:
+                yield event.plain_result("二维码过期了，再发一次「网易云登录」。")
+                event.stop_event()
+                return
+        yield event.plain_result(
+            "你扫码了但一直没确认，或者网络卡住了。重发「网易云登录」吧。"
+            if told_waiting else "等了两分钟没扫上，重发「网易云登录」吧。")
         event.stop_event()
 
     # ---------------- 指令 ----------------
