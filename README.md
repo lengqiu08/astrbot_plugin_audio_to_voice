@@ -1,5 +1,7 @@
 # 深海电台 · 小深音乐台（重置版）
 
+仓库：<https://github.com/lengqiu08/astrbot_plugin_audio_to_voice>
+
 一个群里的点歌台：搜歌 → 出歌单 → 回编号 → 出语音条或原轨。
 顺手带本地曲库、收歌入库、音频↔语音条双向转换。
 

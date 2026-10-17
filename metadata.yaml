@@ -4,6 +4,7 @@ desc: 小深音乐台重启版——「点歌 倔强」搜歌出歌单（封面+
 help: 点歌 <关键词|BV号|网易云链接> 出歌单，回数字选歌（「3 文件」发原轨），「上/下」翻页，「取消」退出；歌单/曲库 看本地；收歌 回复音频入库；转语音 音频转语音条；转音频 语音条转 mp3；点歌榜、我的点歌；登录状态、扫码登录；电台自检。
 version: 1.1.0
 author: 小深
+repo: "https://github.com/lengqiu08/astrbot_plugin_audio_to_voice"
 astrbot_version: ">=v4.12.0"
 support_platforms:
   - aiocqhttp
