@@ -1,0 +1,161 @@
+{
+  "enable": {
+    "description": "启用插件",
+    "hint": "关掉后所有指令都不响应。",
+    "type": "bool",
+    "default": true
+  },
+  "sources": {
+    "description": "搜索源",
+    "hint": "可多选：local=本地曲库，bilibili=B站音乐区（免登录就能出声），netease=网易云（出声要填 cookie）。",
+    "type": "list",
+    "default": [
+      "local",
+      "bilibili"
+    ]
+  },
+  "max_results": {
+    "description": "一次最多列几首",
+    "hint": "1-50，默认 27（配合每页 9 首正好三页）。",
+    "type": "int",
+    "default": 27
+  },
+  "page_size": {
+    "description": "每页几首",
+    "hint": "默认 9，配合「上/下」翻页。",
+    "type": "int",
+    "default": 9
+  },
+  "library_dirs": {
+    "description": "本地曲库目录",
+    "hint": "多个目录用英文分号隔开。第一个目录也是「收歌」的落盘处。",
+    "type": "string",
+    "default": "/root/AstrBot/data/songs"
+  },
+  "mode": {
+    "description": "发送方式",
+    "hint": "auto=短的发语音条、长的切成文件；voice=尽量都发语音条；file=一律发原轨。",
+    "type": "string",
+    "default": "auto"
+  },
+  "voice_max_seconds": {
+    "description": "单条语音最长秒数",
+    "hint": "协议端(NapCat)按这个切；QQ 官方接口硬限 300 秒，配置在这里不生效，插件会自动按 299.5 切。",
+    "type": "int",
+    "default": 900
+  },
+  "max_segments": {
+    "description": "最多切几条",
+    "hint": "超过这个段数就不切了，直接发文件。默认 6。",
+    "type": "int",
+    "default": 6
+  },
+  "codec": {
+    "description": "语音编码",
+    "hint": "wav=交给适配器自己编 silk（兼容性最好，推荐）；silk=插件自己编（需要 pilk）。",
+    "type": "string",
+    "default": "wav"
+  },
+  "platform_mode": {
+    "description": "平台模式",
+    "hint": "auto=按平台名自动判断；official=一律当 QQ 官方接口；napcat=一律当协议端。",
+    "type": "string",
+    "default": "auto"
+  },
+  "reply_hint": {
+    "description": "发送前加一句说明",
+    "hint": "默认开：发语音前先说《歌名》多久。关掉更干净。",
+    "type": "bool",
+    "default": true
+  },
+  "save_downloaded": {
+    "description": "点过的歌自动入库",
+    "hint": "默认开：在线点的歌顺手存进曲库，下次不用再下。",
+    "type": "bool",
+    "default": true
+  },
+  "cooldown": {
+    "description": "点歌冷却（秒）",
+    "hint": "成功发完一首后的冷却，防止刷屏。默认 30，设 0 关闭。",
+    "type": "int",
+    "default": 30
+  },
+  "session_ttl": {
+    "description": "歌单有效期（秒）",
+    "hint": "出歌单后多久内可以回编号，默认 600（10 分钟）。",
+    "type": "int",
+    "default": 600
+  },
+  "audio_bitrate": {
+    "description": "转 mp3 的码率",
+    "hint": "收歌和「转音频」用的码率，默认 192k。",
+    "type": "string",
+    "default": "192k"
+  },
+  "collect_name": {
+    "description": "收歌默认文件名",
+    "hint": "留空就用「收歌_月日_时分」。",
+    "type": "string",
+    "default": ""
+  },
+  "bilibili_cookie": {
+    "description": "B站 cookie（可选）",
+    "hint": "不填也能搜、能发 AAC。想拿大会员 FLAC 无损才需要，填 SESSDATA=... 即可。",
+    "type": "string",
+    "default": ""
+  },
+  "bili_music_only": {
+    "description": "B站只搜音乐区",
+    "hint": "默认开：搜索带 tids=3，只回音乐分区，不再糊你一脸无关视频。",
+    "type": "bool",
+    "default": true
+  },
+  "title_chars": {
+    "description": "B站标题截断长度",
+    "hint": "B站标题又长又堆关键词，默认截到 26 字。0 表示不截。",
+    "type": "int",
+    "default": 26
+  },
+  "netease_cookie": {
+    "description": "网易云 cookie（可选）",
+    "hint": "只搜歌不用填。要用网易云出声必须填整条 Cookie（至少带 MUSIC_U=...）。",
+    "type": "string",
+    "default": ""
+  },
+  "show_covers": {
+    "description": "歌单配封面",
+    "hint": "默认开：每页拼一张九宫格封面图，左上角标编号。关掉只发文字。",
+    "type": "bool",
+    "default": true
+  },
+  "show_quality": {
+    "description": "歌单标音质",
+    "hint": "默认关。开启后每页会去 B站探一次有无无损/码率，每页多约 2 秒。",
+    "type": "bool",
+    "default": false
+  },
+  "cover_style": {
+    "description": "封面样式",
+    "hint": "inline=每首歌后跟自己的封面、整页拼成一条消息（默认）；poster=整页一张图文海报；grid=只拼封面九宫格；off=不配图。",
+    "type": "string",
+    "default": "inline"
+  },
+  "auto_clean_hours": {
+    "description": "自动清理间隔（小时）",
+    "hint": "默认 6。到点自动清：临时音频（超 1 小时）、封面缓存（超上限）、过期歌单。设 0 关闭。",
+    "type": "int",
+    "default": 6
+  },
+  "cache_max_files": {
+    "description": "封面缓存上限（个）",
+    "hint": "默认 200，超了按时间删最旧的。",
+    "type": "int",
+    "default": 200
+  },
+  "bili_card": {
+    "description": "B站分享卡片",
+    "hint": "默认关。开启后，B站来源的歌曲会先附一张结构化卡片（标题/UP主/封面/链接）。客户端不认这种卡片时可能显示成灰块，自己试过再决定。",
+    "type": "bool",
+    "default": false
+  }
+}

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>深海电台 · 控制台</title>
+  <style>
+    :root { color-scheme: dark; --line:#262b36; --card:#1b1e26; --dim:#8b93a7; --blue:#9db8ff; }
+    body { margin:0; padding:0 14px 20px; background:#12141a; color:#e6e8ee;
+           font:15px/1.7 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+    h1 { font-size:17px; margin:0; }
+    h2 { font-size:14px; margin:0; color:var(--blue); }
+    .dim { color:var(--dim); font-size:13px; }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    header.top { position:sticky; top:0; z-index:5; background:#12141a;
+                 padding:10px 0 6px; border-bottom:1px solid var(--line); }
+    nav.tabs { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+    nav.tabs button { background:transparent; border:1px solid transparent; color:var(--dim);
+                      border-radius:999px; padding:3px 12px; font-size:14px; }
+    nav.tabs button:hover { background:#20242e; color:#e6e8ee; }
+    nav.tabs button.active { background:#2b3240; border-color:#39415a; color:#e6e8ee; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin:12px 0; }
+    .card > header { display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:8px; }
+    .pills { display:flex; gap:6px; flex-wrap:wrap; }
+    .pill { background:#232733; border-radius:999px; padding:2px 10px; font-size:13px; }
+    .ok { color:#58d68d; } .warn { color:#f5c451; } .bad { color:#ff7b7b; }
+    button { background:#2b3240; color:#e6e8ee; border:1px solid #39415a; border-radius:9px;
+             padding:5px 12px; font-size:14px; cursor:pointer; }
+    button:hover { background:#333c4d; }
+    button.primary { background:#3a5bd9; border-color:#3a5bd9; }
+    button:disabled { opacity:.5; cursor:default; }
+    input, select { background:#12141a; color:#e6e8ee; border:1px solid #39415a;
+                    border-radius:9px; padding:5px 9px; font-size:14px; }
+    table { width:100%; border-collapse:collapse; font-size:13.5px; }
+    th, td { text-align:left; padding:5px 6px; border-bottom:1px solid #232733; vertical-align:top; }
+    th { color:var(--dim); font-weight:500; }
+    td.num { text-align:right; white-space:nowrap; color:var(--dim); }
+    code { background:#232733; padding:1px 5px; border-radius:5px; font-size:13px; }
+    pre { background:#0e1015; border:1px solid var(--line); border-radius:9px; padding:9px;
+          font-size:12.5px; max-height:280px; overflow:auto; margin:8px 0 0; white-space:pre-wrap; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:8px 14px; }
+    .kv { display:flex; justify-content:space-between; gap:10px; border-bottom:1px solid #232733; padding:3px 0; }
+    .kv span:first-child { color:var(--dim); }
+    .note { background:#2a2416; border:1px solid #574a20; color:#f5d78a; border-radius:10px;
+            padding:9px 12px; font-size:13.5px; margin:12px 0; }
+    section[hidden] { display:none; }
+  </style>
+</head>
+<body class="bridge-off">
+  <header class="top">
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <h1>深海电台 · 控制台</h1>
+        <div class="dim">点歌 · 双向转换 · 曲库 · 维护</div>
+      </div>
+      <button id="refresh">刷新</button>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="state" class="active">状态</button>
+      <button data-tab="library">曲库</button>
+      <button data-tab="config">设置</button>
+      <button data-tab="maint">维护</button>
+      <button data-tab="help">命令</button>
+    </nav>
+  </header>
+
+  <div id="bridge-note" class="note" hidden>
+    这版面板没给插件页注入页面桥（<code>window.AstrBotPluginPage</code> 是 undefined），
+    下面的按钮点不动；命令在聊天里照发，不影响使用。
+  </div>
+
+  <section id="tab-state">
+    <div class="card">
+      <header><h2>状态</h2><div class="pills" id="pills"></div></header>
+      <div class="grid" id="state-grid"></div>
+      <div class="dim" id="state-paths" style="margin-top:8px"></div>
+    </div>
+  </section>
+
+  <section id="tab-library" hidden>
+    <div class="card">
+      <header>
+        <h2>曲库</h2>
+        <div class="row">
+          <input id="q" placeholder="搜文件名…" style="width:150px" />
+          <button id="search">搜</button>
+          <label class="dim"><input type="checkbox" id="probe" /> 量时长</label>
+        </div>
+      </header>
+      <table>
+        <thead><tr><th>文件</th><th class="num">时长</th><th class="num">大小</th><th class="num">改动</th></tr></thead>
+        <tbody id="lib-body"><tr><td colspan="4" class="dim">切到这一页就加载</td></tr></tbody>
+      </table>
+      <div class="row" style="margin-top:8px; justify-content:space-between">
+        <div class="dim" id="lib-info"></div>
+        <div class="row"><button id="prev">上一页</button><button id="next">下一页</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-config" hidden>
+    <div class="card">
+      <header><h2>设置</h2><div class="row"><button id="save" class="primary">保存</button></div></header>
+      <div class="grid" id="cfg-grid"></div>
+      <div class="dim" style="margin-top:8px">只写这几个键，其它配置项请走插件配置页。</div>
+    </div>
+  </section>
+
+  <section id="tab-maint" hidden>
+    <div class="card">
+      <header>
+        <h2>维护</h2>
+        <div class="row"><button id="clean">清理缓存</button><button id="logs">看日志</button></div>
+      </header>
+      <pre id="maint-out" hidden></pre>
+    </div>
+  </section>
+
+  <section id="tab-help" hidden>
+    <div class="card">
+      <header><h2>命令速查</h2></header>
+      <table>
+        <tbody>
+          <tr><td><code>发歌 关键词</code></td><td>点本地曲库（离线，按文件名模糊找）</td></tr>
+          <tr><td><code>搜歌 / 点歌 关键词</code></td><td>联网搜 / 点（默认 B 站）；歌单 ≤25 首、3 页、编号 1~25</td></tr>
+          <tr><td><code>歌单</code></td><td>列曲库（带时长）</td></tr>
+          <tr><td><code>转语音 / 转音频 / 收歌</code></td><td>回复一条音频再发命令：转语音条 / 转 mp3 / 存进曲库</td></tr>
+          <tr><td><code>登录状态 / 扫码登录</code></td><td>B 站 cookie 有没有、能不能拿无损</td></tr>
+        </tbody>
+      </table>
+      <div class="dim" style="margin-top:8px">
+        QQ 官方线语音硬限 <b>300 秒，多一毫秒都不行</b>，超长自动均分切片；NapCat 不受限。
+        语音条天生约 21kbps，要音质就让本鲸发文件。
+      </div>
+    </div>
+  </section>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

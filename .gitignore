@@ -1,0 +1,5 @@
+__pycache__/
+cache/
+sessions.json
+plays.json
+*.pyc

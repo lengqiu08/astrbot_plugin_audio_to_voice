@@ -1,0 +1,13 @@
+name: astrbot_plugin_audio_to_voice
+display_name: 深海电台
+desc: 小深音乐台重启版——「点歌 倔强」搜歌出歌单（封面+歌名+歌手+时长），回编号就发语音条或原轨；B站音乐区/网易云/本地曲库三源合并、拼音搜索、BV号直点；自带收歌入库、音频↔语音条双向转换、扫码登录、点歌榜和 WebUI 控制台。
+help: 点歌 <关键词|BV号|网易云链接> 出歌单，回数字选歌（「3 文件」发原轨），「上/下」翻页，「取消」退出；歌单/曲库 看本地；收歌 回复音频入库；转语音 音频转语音条；转音频 语音条转 mp3；点歌榜、我的点歌；登录状态、扫码登录；电台自检。
+version: 1.1.0
+author: 小深
+astrbot_version: ">=v4.12.0"
+support_platforms:
+  - aiocqhttp
+  - qq_official
+pages:
+  - name: settings
+    title: 控制台
