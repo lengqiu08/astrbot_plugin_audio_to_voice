@@ -1277,9 +1277,29 @@ class DeepseaRadio(Star):
         try:
             src = await asyncio.to_thread(self._fetch, song)
         except Exception as exc:  # noqa: BLE001
-            yield event.plain_result(
-                f"《{song['name']}》没拿到音源：{exc}\n这次不算冷却，可以再选一个编号，或「文件」换格式。")
-            return
+            # 网易云的版权歌常常"搜得到、拿不到链接"：自动用同名去 B站捞一条顶上
+            alt = None
+            if song.get("source") == "netease":
+                try:
+                    rows = await asyncio.to_thread(self._search_bili, str(song.get("name") or ""), 1)
+                    alt = rows[0] if rows else None
+                except Exception:  # noqa: BLE001
+                    alt = None
+            if alt:
+                yield event.plain_result(
+                    f"《{song['name']}》在网易云没版权（拿不到链接），已自动换成 B站那条。")
+                song = alt
+                sess["chosen"] = alt
+                try:
+                    src = await asyncio.to_thread(self._fetch, song)
+                except Exception as exc2:  # noqa: BLE001
+                    yield event.plain_result(
+                        f"换源也没成：{exc2}\n这次不算冷却，可以再选一个编号，或「文件」换格式。")
+                    return
+            else:
+                yield event.plain_result(
+                    f"《{song['name']}》没拿到音源：{exc}\n这次不算冷却，可以再选一个编号，或「文件」换格式。")
+                return
         total = await asyncio.to_thread(_probe, src)
         official = self._is_official(event)
         try:
