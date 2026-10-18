@@ -207,12 +207,6 @@ python3 -c "import json;print(json.load(open('/root/AstrBot/data/cmd_config.json
 
 ---
 
-## 八、回滚
-
-旧版插件备份在 `data/plugins_disabled/astrbot_plugin_audio_to_voice_legacy/`。
-要回滚：把当前目录挪出去，把 backup 挪回 `data/plugins/astrbot_plugin_audio_to_voice/`，然后在 WebUI 重载插件。
-
----
 
 ## 九、实验性功能
 
