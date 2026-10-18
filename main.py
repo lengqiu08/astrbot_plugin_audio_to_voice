@@ -616,9 +616,11 @@ class DeepseaRadio(Star):
         return "", secs
 
     # ---------------- 搜索聚合 / 下载 ----------------
-    def _search_all(self, keyword: str, limit: int) -> list[dict]:
-        """三源并发查，再按「同名同歌手」去重（本地优先）。"""
+    def _search_all(self, keyword: str, limit: int, only: str | None = None) -> list[dict]:
+        """三源并发查，再按「同名同歌手」去重（本地优先）。only 可指定只查某一个源。"""
         wanted = [str(x).strip().lower() for x in (self._cfg("sources", ["local", "bilibili"]) or [])]
+        if only:
+            wanted = [only]
         jobs = []
         if "local" in wanted:
             jobs.append(self._search_local)
@@ -1352,6 +1354,8 @@ class DeepseaRadio(Star):
         ("B站状态", "cmd_login_status"),
         ("转语音", "cmd_to_voice"),
         ("转音频", "cmd_to_audio"),
+        ("网易云点歌", "cmd_play"),
+        ("B站点歌", "cmd_play"),
         ("点歌", "cmd_play"),
         ("来一首", "cmd_play"),
         ("歌单", "cmd_library"),
@@ -1699,10 +1703,17 @@ class DeepseaRadio(Star):
         if not self.enabled:
             return
         keyword = event.message_str.strip()
-        for token in ("点歌", "来一首"):
-            if keyword.startswith(token):
-                keyword = keyword[len(token):].strip()
+        only = None
+        for prefix, src in (("网易云点歌", "netease"), ("B站点歌", "bilibili")):
+            if keyword.startswith(prefix):
+                keyword = keyword[len(prefix):].strip()
+                only = src
                 break
+        if only is None:
+            for token in ("点歌", "来一首"):
+                if keyword.startswith(token):
+                    keyword = keyword[len(token):].strip()
+                    break
         if not keyword:
             yield event.plain_result("格式：点歌 <关键词>\n例：点歌 倔强 五月天")
             return
@@ -1724,7 +1735,7 @@ class DeepseaRadio(Star):
 
         limit = max(1, min(50, int(self._cfg("max_results", 27) or 27)))
         await asyncio.to_thread(self._maybe_auto_clean)
-        songs = await asyncio.to_thread(self._search_all, keyword, limit)
+        songs = await asyncio.to_thread(self._search_all, keyword, limit, only)
         if not songs:
             hint = "换个关键词试试"
             if "netease" in str(self._cfg("sources", "")) or "bilibili" in str(self._cfg("sources", "")):
