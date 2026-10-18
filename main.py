@@ -1469,8 +1469,12 @@ class DeepseaRadio(Star):
         else:
             lines.append("· 还没登录。不登录也能用：搜歌、发 AAC 音轨、本地曲库点歌。")
             lines.append("· 想要 FLAC 无损，发「扫码登录」。")
-        netease = str(self._cfg("netease_cookie", "") or "").strip()
-        lines.append(f"· 网易云 cookie：{'有' if netease else '无（只能搜，不能出声）'}")
+        sources = [str(x).strip().lower() for x in (self._cfg("sources", []) or [])]
+        if "netease" in sources:
+            netease = str(self._cfg("netease_cookie", "") or "").strip()
+            lines.append(f"· 网易云 cookie：{'有' if netease else '无（只能搜，不能出声）'}")
+        else:
+            lines.append("· 搜索源：本地 + B站（未启用网易云）")
         yield event.plain_result(chr(10).join(lines))
         event.stop_event()
 
