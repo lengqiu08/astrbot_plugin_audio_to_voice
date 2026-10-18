@@ -142,6 +142,8 @@ class DeepseaRadio(Star):
         self._cooldowns: dict[str, float] = {}
         self._duration_cache: dict[str, float] = {}
         self._recent_play: dict[str, tuple[str, float]] = {}
+        self._netease_phone: str = ""
+        self._netease_phone_ts: float = 0.0
         self._last_clean = 0.0
         self._plays_file = os.path.join(self.plugin_dir, "plays.json")
         self._plays: dict = self._load_plays()
@@ -690,6 +692,18 @@ class DeepseaRadio(Star):
             raise RuntimeError("B 站没给出可用音轨")
         song["seconds"] = int(secs or song.get("seconds") or 0)
         return self._download(url, referer="https://www.bilibili.com/")
+
+    def _enable_netease_source(self) -> None:
+        """登录成功后把网易云加回搜索源，否则登录了也不会用它。"""
+        try:
+            sources = [str(x).strip().lower() for x in (self._cfg("sources", []) or [])]
+            if "netease" not in sources:
+                sources.append("netease")
+                self.config["sources"] = sources
+                self._save_config()
+                logger.info("[DeepseaRadio] 已把网易云加回搜索源")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"[DeepseaRadio] 更新搜索源失败：{exc}")
 
     def _sweep_temp(self, max_age: int = 3600) -> None:
         """清掉自己留下的临时音频。家政插件已经停用，不扫就没人扫了。"""
@@ -1326,6 +1340,7 @@ class DeepseaRadio(Star):
     _ROUTES = (
         ("电台自检", "cmd_selftest"),
         ("B站卡片", "cmd_bili_card"),
+        ("网易云验证码", "cmd_netease_captcha"),
         ("重新网易云登录", "cmd_netease_login"),
         ("网易云登录", "cmd_netease_login"),
         ("重新扫码", "cmd_bili_login"),
@@ -1555,9 +1570,52 @@ class DeepseaRadio(Star):
             "你扫码了，但一直没确认。回手机点「确认登录」，或者重发「扫码登录」。")
         event.stop_event()
 
+    async def cmd_netease_captcha(self, event: AstrMessageEvent):
+        """网易云验证码：拿到短信码后发「网易云验证码 1234」完成登录。"""
+        m = re.search(r"(\d{4,6})", event.message_str)
+        if not m:
+            yield event.plain_result("格式：网易云验证码 1234")
+            event.stop_event()
+            return
+        if not self._netease_phone or time.time() - self._netease_phone_ts > 600:
+            yield event.plain_result("还没发验证码，或者超过 10 分钟了。先发「网易云登录 手机号」。")
+            event.stop_event()
+            return
+        code, msg, cookie = await asyncio.to_thread(
+            netease_login.login_by_captcha, self._netease_phone, m.group(1))
+        if code == 200 and cookie:
+            self.config["netease_cookie"] = cookie
+            saved = netease_login.save_cookie(cookie)
+            self._enable_netease_source()
+            self._netease_phone = ""
+            self._netease_phone_ts = 0.0
+            yield event.plain_result(
+                "网易云登录成功，cookie 已存好。" + ("" if saved else "（写文件失败，重启前仍有效）"))
+        else:
+            yield event.plain_result(
+                f"登录没成：{msg or '验证码不对或已过期'}（code {code}）\n"
+                "可以重发「网易云登录 手机号」再要一次验证码。")
+        event.stop_event()
+
     async def cmd_netease_login(self, event: AstrMessageEvent):
         """网易云扫码登录：已登录就不发码；换号走「重新网易云登录」。"""
         text = event.message_str.strip()
+        # 带手机号 = 走短信验证码这条路
+        phone_match = re.search(r"1[3-9]\d{9}", text)
+        if phone_match:
+            phone = phone_match.group(0)
+            code, msg = await asyncio.to_thread(netease_login.send_captcha, phone)
+            if code == 200:
+                self._netease_phone = phone
+                self._netease_phone_ts = time.time()
+                yield event.plain_result(
+                    f"验证码已发到 {phone[:3]}****{phone[-4:]}，10 分钟内有效。\n"
+                    "收到后发「网易云验证码 1234」完成登录。")
+            else:
+                yield event.plain_result(
+                    f"验证码没发出去：{msg or '网易云没给响应'}（code {code}）")
+            event.stop_event()
+            return
         force = text.startswith("重新网易云登录")
         if not force:
             cookie = str(self._cfg("netease_cookie", "") or "").strip()
@@ -1608,6 +1666,7 @@ class DeepseaRadio(Star):
                     return
                 self.config["netease_cookie"] = new_cookie
                 saved = netease_login.save_cookie(new_cookie)
+                self._enable_netease_source()
                 yield event.plain_result(
                     "网易云登录成功，cookie 已存好。" + ("" if saved else "（写文件失败，重启前仍有效）"))
                 event.stop_event()
