@@ -255,11 +255,15 @@ class DeepseaRadio(Star):
                     os.remove(path)
         return out
 
-    def _to_mp3(self, src: str, bitrate: str = "192k") -> str:
+    def _to_mp3(self, src: str, bitrate: str | None = None) -> str:
         ffmpeg = shutil.which("ffmpeg")
         if not ffmpeg:
             raise RuntimeError("缺 ffmpeg")
-        out = os.path.join(tempfile.gettempdir(), f"dsr_{os.getpid()}_{os.urandom(3).hex()}.mp3")
+        # 输出格式：mp3（默认）或 flac（无损）
+        fmt = str(self._cfg("audio_format", "mp3") or "mp3").lower()
+        bitrate = bitrate or str(self._cfg("bitrate", "192k"))
+        out = os.path.join(tempfile.gettempdir(),
+                           f"dsr_{os.getpid()}_{os.urandom(3).hex()}.{fmt}")
         work, cleanup = src, []
         if src.lower().endswith(".silk"):
             if pilk is None:
@@ -273,7 +277,10 @@ class DeepseaRadio(Star):
             cmd += ["-f", "s16le", "-ar", str(RATE), "-ac", "1", "-i", work]
         else:
             cmd += ["-i", work]
-        cmd += ["-b:a", bitrate, "-ar", "44100", "-ac", "2", out]
+        if fmt == "flac":
+            cmd += ["-c:a", "flac", "-compression_level", "8", "-ar", "44100", "-ac", "2", out]
+        else:
+            cmd += ["-b:a", bitrate, "-ar", "44100", "-ac", "2", out]
         try:
             subprocess.run(cmd, check=True, timeout=600)
         finally:
@@ -1389,6 +1396,9 @@ class DeepseaRadio(Star):
         if not self.enabled:
             return
         text = " ".join((event.message_str or "").split())
+        # 用户常带斜杠打命令（/点歌 倔强），QQ 指令面板也会自动加一个；
+        # 这里统一剥掉前导斜杠/标点再匹配，不然会漏接、被大模型接走。
+        text = text.lstrip("/／!！.。 ")
         if not text:
             return
         for word, method in self._ROUTES:

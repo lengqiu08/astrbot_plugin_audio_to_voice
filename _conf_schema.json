@@ -157,5 +157,15 @@
     "hint": "默认关。开启后，B站来源的歌曲会先附一张结构化卡片（标题/UP主/封面/链接）。客户端不认这种卡片时可能显示成灰块，自己试过再决定。",
     "type": "bool",
     "default": false
+  },
+  "audio_format": {
+    "description": "转音频格式",
+    "hint": "「转音频」输出的格式：mp3 = 有损、体积小（默认）；flac = 无损、体积大。codec 管的是语音条，两者不冲突。",
+    "type": "string",
+    "default": "mp3",
+    "options": [
+      "mp3",
+      "flac"
+    ]
   }
 }
